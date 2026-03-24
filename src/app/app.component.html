@@ -1,15 +1,19 @@
-<div class="toolbar">
-  <button (click)="setMode('draw')">Draw</button>
-  <button (click)="setMode('marker')">Add Datalogger</button>
+<div class="layout">
+  <aside class="sidebar">
+    <h2 class="logo">My App</h2>
 
-  <input type="color" [(ngModel)]="markerColor">
+    <nav>
+      <a routerLink="/paint" routerLinkActive="active">
+        🎨 Paint
+      </a>
 
-  <button (click)="undo()">Undo</button>
-  <button (click)="clearCanvas()">Clear</button>
+      <a routerLink="/figma" routerLinkActive="active">
+        ✏️ Figma
+      </a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <router-outlet></router-outlet>
+  </main>
 </div>
-
-<div class="playground">
-  <canvas #canvas width="2000" height="600"></canvas>
-</div>
-
-<router-outlet></router-outlet>

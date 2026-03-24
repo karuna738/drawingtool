@@ -1,0 +1,42 @@
+<div class="app">
+
+    <div class="sidebar">
+        <h3 style="color: black;">Tools</h3>
+
+        <button (click)="mode='select'">Select</button>
+        <button (click)="mode='text'">Text</button>
+        <button (click)="mode='line'">Line</button>
+        <button (click)="addDataloggers()">Add Dataloggers</button>
+        <br>
+        <br>
+        <hr>
+        <br>
+        <button (click)="undo()">Undo</button>
+        <button (click)="redo()">Redo</button>
+
+        <button (click)="save()">Save</button>
+        <button (click)="load()">Load</button>
+        <button (click)="clearAll()">Clear</button>
+
+        <input type="color" [(ngModel)]="color" style="width: 100%;">
+
+        <hr>
+
+        <h4 style="color: black;">Layers</h4>
+        <div style="display: flex;flex-direction: column;overflow: auto;max-height: 45%;">
+            <div *ngFor="let s of shapes; let i = index" [class.active]="selected.includes(s)"
+                (click)="selectFromLayer(s)">
+
+                <p style="color: black; width: 100%; margin: 0px; display: flex; align-items: center;">{{s.type}} -
+                    {{i}}</p>
+                <button style="width: 20px; margin: 0px;" (click)="deleteShape(s); $event.stopPropagation()">✕</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="canvas-container">
+        <canvas #canvas></canvas>
+    </div>
+
+</div>

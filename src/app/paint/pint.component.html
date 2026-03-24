@@ -1,0 +1,15 @@
+<div class="toolbar">
+  <button (click)="setMode('draw')">Draw</button>
+  <button (click)="setMode('marker')">Add Datalogger</button>
+  <button (click)="setMode('warehouse')">Draw Warehouse</button>
+
+  <input type="color" [(ngModel)]="markerColor">
+
+  <button (click)="undo()">Undo</button>
+  <button (click)="redo()">Redo</button>
+  <button (click)="clearCanvas()">Clear</button>
+</div>
+
+<div class="playground">
+  <canvas #canvas width="1500" height="600"></canvas>
+</div>

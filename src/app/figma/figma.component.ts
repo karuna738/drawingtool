@@ -101,6 +101,7 @@ export class FigmaComponent implements AfterViewInit {
 
     if (this.mode === 'text') {
       const text = prompt('Enter text');
+      if(['',null,undefined].includes(text)) return;
       this.shapes.push({
         id: Date.now(),
         type: 'text',

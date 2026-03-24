@@ -16,6 +16,7 @@ interface Shape {
   styleUrls: ['./figma.component.scss'],
 })
 export class FigmaComponent implements AfterViewInit {
+
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
   ctx!: CanvasRenderingContext2D;
 
@@ -52,15 +53,46 @@ export class FigmaComponent implements AfterViewInit {
     this.draw();
   }
 
+  // ================= GRID =================
+  drawGrid() {
+    const canvas = this.canvasRef.nativeElement;
+    const step = this.gridSize;
+
+    this.ctx.strokeStyle = '#e0e0e0';
+    this.ctx.fillStyle = '#888';
+    this.ctx.font = '10px Arial';
+
+    // Vertical lines + X scale
+    for (let x = 0; x < canvas.width; x += step) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, canvas.height);
+      this.ctx.stroke();
+
+      this.ctx.fillText(x.toString(), x + 2, 10);
+    }
+
+    // Horizontal lines + Y scale
+    for (let y = 0; y < canvas.height; y += step) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(canvas.width, y);
+      this.ctx.stroke();
+
+      this.ctx.fillText(y.toString(), 2, y - 2);
+    }
+  }
+
   snap(v: number) {
     return Math.round(v / this.gridSize) * this.gridSize;
   }
 
   pos(e: MouseEvent) {
     const r = this.canvasRef.nativeElement.getBoundingClientRect();
-    const x = this.snap(e.clientX - r.left);
-    const y = this.snap(e.clientY - r.top);
-    return { x, y };
+    return {
+      x: this.snap(e.clientX - r.left),
+      y: this.snap(e.clientY - r.top),
+    };
   }
 
   // ================= DOWN =================
@@ -111,7 +143,6 @@ export class FigmaComponent implements AfterViewInit {
       this.ctx.lineTo(x, y);
       this.ctx.strokeStyle = this.color;
       this.ctx.stroke();
-
       return;
     }
 
@@ -155,7 +186,13 @@ export class FigmaComponent implements AfterViewInit {
     const c = this.canvasRef.nativeElement;
     this.ctx.clearRect(0, 0, c.width, c.height);
 
+    // 🔥 GRID
+    this.drawGrid();
+
+    this.ctx.font = '12px Arial';
+
     this.shapes.forEach((s) => {
+
       if (s.type === 'text') {
         this.ctx.fillStyle = s.color;
         this.ctx.fillText(s.text!, s.x, s.y);
@@ -175,72 +212,84 @@ export class FigmaComponent implements AfterViewInit {
         const textWidth = this.ctx.measureText(text).width;
         const padding = 6;
 
-        const boxWidth = textWidth + padding * 2;
-        const boxHeight = 20;
-
         const boxX = s.x - padding;
         const boxY = s.y - 14;
 
-        // 🔥 BACKGROUND COLOR
         this.ctx.fillStyle = s.color === '#000000' ? '#3498db' : s.color;
-        this.ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        this.ctx.fillRect(boxX, boxY, textWidth + padding * 2, 20);
 
-        // 🔥 BORDER
         this.ctx.strokeStyle = '#000';
-        this.ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        this.ctx.strokeRect(boxX, boxY, textWidth + padding * 2, 20);
 
-        // 🔥 TEXT ALWAYS BLACK
-        this.ctx.fillStyle = '#000000';
+        this.ctx.fillStyle = '#000';
         this.ctx.fillText(text, s.x, s.y);
       }
 
       if (this.selected.includes(s)) {
         this.ctx.strokeStyle = 'blue';
-        this.ctx.strokeRect(s.x - 5, s.y - 5, 110, 30);
+        this.ctx.strokeRect(s.x - 10, s.y - 20, 80, 30);
       }
     });
   }
 
-  // ================= LAYERS =================
-  selectFromLayer(s: Shape) {
-    this.selected = [s];
-    this.draw();
+  // ================= HIT =================
+  hit(x: number, y: number): Shape | null {
+    return [...this.shapes].reverse().find((s) => {
+
+      if (s.type === 'logger') {
+        const textWidth = this.ctx.measureText(s.text || '').width;
+        const padding = 6;
+
+        return (
+          x >= s.x - padding &&
+          x <= s.x + textWidth + padding &&
+          y >= s.y - 14 &&
+          y <= s.y + 6
+        );
+      }
+
+      if (s.type === 'text') {
+        return x >= s.x && x <= s.x + 100 &&
+               y >= s.y - 20 && y <= s.y + 10;
+      }
+
+      if (s.type === 'line' && s.points) {
+        const [p1, p2] = s.points;
+
+        const dist =
+          Math.abs(
+            (p2.y - p1.y) * x -
+            (p2.x - p1.x) * y +
+            p2.x * p1.y -
+            p2.y * p1.x
+          ) / Math.hypot(p2.y - p1.y, p2.x - p1.x);
+
+        return dist < 4;
+      }
+
+      return false;
+    }) || null;
   }
 
-  deleteShape(s: Shape) {
-    this.shapes = this.shapes.filter((x) => x.id !== s.id);
-    this.saveState();
-    this.draw();
-  }
-
+  // ================= ADD LOGGER =================
   addDataloggers() {
     const count = Number(prompt('Enter number of dataloggers'));
-
-    if (!count || count <= 0) return;
-
-    const startX = 50;
-    const startY = 50;
-
-    const cols = Math.ceil(Math.sqrt(count));
-    const rows = Math.ceil(count / cols);
-
-    const gap = 60;
+    if (!count) return;
 
     let index = 1;
+    const gap = 60;
 
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < Math.ceil(Math.sqrt(count)); r++) {
+      for (let c = 0; c < Math.ceil(Math.sqrt(count)); c++) {
+
         if (index > count) break;
-
-        const x = this.snap(startX + c * gap);
-        const y = this.snap(startY + r * gap);
 
         this.shapes.push({
           id: Date.now() + index,
           type: 'logger',
-          x,
-          y,
-          color: this.color, // 🔥 background color
+          x: this.snap(50 + c * gap),
+          y: this.snap(50 + r * gap),
+          color: this.color,
           text: `DL-${index}`,
         });
 
@@ -252,79 +301,33 @@ export class FigmaComponent implements AfterViewInit {
     this.draw();
   }
 
-  // ================= TEXT =================
-editText(e: MouseEvent) {
-  const { x, y } = this.pos(e);
-  const s = this.hit(x, y);
+  // ================= EDIT =================
+  editText(e: MouseEvent) {
+    const { x, y } = this.pos(e);
+    const s = this.hit(x, y);
 
-  // 🔥 FIX: allow both text + logger
-  if (s && (s.type === 'text')) {
-
-    const t = prompt('Edit', s.text);
-
-    if (t !== null) {
-      s.text = t;
-      this.saveState();
-      this.draw();
+    if (s && (s.type === 'text')) {
+      const t = prompt('Edit', s.text);
+      if (t !== null) {
+        s.text = t;
+        this.saveState();
+        this.draw();
+      }
     }
   }
-}
 
-  // ================= HIT =================
-hit(x: number, y: number): Shape | null {
-  return [...this.shapes].reverse().find((s) => {
+  // ================= UTILS =================
+  selectFromLayer(s: Shape) {
+    this.selected = [s];
+    this.draw();
+  }
 
-    // 🔥 LOGGER (FIRST PRIORITY)
-    if (s.type === 'logger') {
-      const text = s.text || '';
-      const textWidth = this.ctx.measureText(text).width;
-      const padding = 6;
+  deleteShape(s: Shape) {
+    this.shapes = this.shapes.filter(x => x.id !== s.id);
+    this.saveState();
+    this.draw();
+  }
 
-      const boxWidth = textWidth + padding * 2;
-      const boxHeight = 20;
-
-      const boxX = s.x - padding;
-      const boxY = s.y - 14;
-
-      return (
-        x >= boxX &&
-        x <= boxX + boxWidth &&
-        y >= boxY &&
-        y <= boxY + boxHeight
-      );
-    }
-
-    // 🔥 TEXT
-    if (s.type === 'text') {
-      return (
-        x >= s.x &&
-        x <= s.x + 100 &&
-        y >= s.y - 20 &&
-        y <= s.y + 10
-      );
-    }
-
-    // 🔥 LINE (LAST PRIORITY + STRICT CHECK)
-    if (s.type === 'line' && s.points) {
-      const [p1, p2] = s.points;
-
-      const dist =
-        Math.abs(
-          (p2.y - p1.y) * x -
-          (p2.x - p1.x) * y +
-          p2.x * p1.y -
-          p2.y * p1.x
-        ) / Math.hypot(p2.y - p1.y, p2.x - p1.x);
-
-      return dist < 4; // 🔥 reduce sensitivity
-    }
-
-    return false;
-
-  }) || null;
-}
-
-  // ================= UNDO =================
   saveState() {
     this.history.push(JSON.stringify({ shapes: this.shapes }));
     this.redoStack = [];

@@ -253,61 +253,76 @@ export class FigmaComponent implements AfterViewInit {
   }
 
   // ================= TEXT =================
-  editText(e: MouseEvent) {
-    const { x, y } = this.pos(e);
-    const s = this.hit(x, y);
+editText(e: MouseEvent) {
+  const { x, y } = this.pos(e);
+  const s = this.hit(x, y);
 
-    if (s?.type === 'text') {
-      const t = prompt('Edit', s.text);
-      if (t !== null) {
-        s.text = t;
-        this.saveState();
-        this.draw();
-      }
+  // 🔥 FIX: allow both text + logger
+  if (s && (s.type === 'text')) {
+
+    const t = prompt('Edit', s.text);
+
+    if (t !== null) {
+      s.text = t;
+      this.saveState();
+      this.draw();
     }
   }
+}
 
   // ================= HIT =================
-  hit(x: number, y: number): Shape | null {
-    return (
-      [...this.shapes].reverse().find((s) => {
-        if (s.type === 'text') {
-          return x >= s.x && x <= s.x + 100 && y >= s.y - 20 && y <= s.y + 10;
-        }
+hit(x: number, y: number): Shape | null {
+  return [...this.shapes].reverse().find((s) => {
 
-        if (s.type === 'line' && s.points) {
-          const [p1, p2] = s.points;
+    // 🔥 LOGGER (FIRST PRIORITY)
+    if (s.type === 'logger') {
+      const text = s.text || '';
+      const textWidth = this.ctx.measureText(text).width;
+      const padding = 6;
 
-          const dist =
-            Math.abs(
-              (p2.y - p1.y) * x - (p2.x - p1.x) * y + p2.x * p1.y - p2.y * p1.x,
-            ) / Math.hypot(p2.y - p1.y, p2.x - p1.x);
+      const boxWidth = textWidth + padding * 2;
+      const boxHeight = 20;
 
-          return dist < 5;
-        }
-        if (s.type === 'logger') {
-          const text = s.text || '';
-          const textWidth = this.ctx.measureText(text).width;
-          const padding = 6;
+      const boxX = s.x - padding;
+      const boxY = s.y - 14;
 
-          const boxWidth = textWidth + padding * 2;
-          const boxHeight = 20;
+      return (
+        x >= boxX &&
+        x <= boxX + boxWidth &&
+        y >= boxY &&
+        y <= boxY + boxHeight
+      );
+    }
 
-          const boxX = s.x - padding;
-          const boxY = s.y - 14;
+    // 🔥 TEXT
+    if (s.type === 'text') {
+      return (
+        x >= s.x &&
+        x <= s.x + 100 &&
+        y >= s.y - 20 &&
+        y <= s.y + 10
+      );
+    }
 
-          return (
-            x >= boxX &&
-            x <= boxX + boxWidth &&
-            y >= boxY &&
-            y <= boxY + boxHeight
-          );
-        }
+    // 🔥 LINE (LAST PRIORITY + STRICT CHECK)
+    if (s.type === 'line' && s.points) {
+      const [p1, p2] = s.points;
 
-        return false;
-      }) || null
-    );
-  }
+      const dist =
+        Math.abs(
+          (p2.y - p1.y) * x -
+          (p2.x - p1.x) * y +
+          p2.x * p1.y -
+          p2.y * p1.x
+        ) / Math.hypot(p2.y - p1.y, p2.x - p1.x);
+
+      return dist < 4; // 🔥 reduce sensitivity
+    }
+
+    return false;
+
+  }) || null;
+}
 
   // ================= UNDO =================
   saveState() {

@@ -16,7 +16,6 @@ interface Shape {
   styleUrls: ['./figma.component.scss'],
 })
 export class FigmaComponent implements AfterViewInit {
-
   @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
   ctx!: CanvasRenderingContext2D;
 
@@ -192,7 +191,7 @@ export class FigmaComponent implements AfterViewInit {
     this.ctx.font = '12px Arial';
 
     this.shapes.forEach((s) => {
-
+      console.log('draw',s)
       if (s.type === 'text') {
         this.ctx.fillStyle = s.color;
         this.ctx.fillText(s.text!, s.x, s.y);
@@ -215,7 +214,10 @@ export class FigmaComponent implements AfterViewInit {
         const boxX = s.x - padding;
         const boxY = s.y - 14;
 
-        this.ctx.fillStyle = s.color === '#000000' ? '#3498db' : s.color;
+        // this.ctx.fillStyle = s.color === '#000000' ? '#3498db' : s.color;
+        this.ctx.fillStyle = this.isBlackCategory(s.color)
+          ? '#3498db'
+          : s.color;
         this.ctx.fillRect(boxX, boxY, textWidth + padding * 2, 20);
 
         this.ctx.strokeStyle = '#000';
@@ -232,43 +234,84 @@ export class FigmaComponent implements AfterViewInit {
     });
   }
 
+  isBlackCategory(color: string): boolean {
+    if (!color) return false;
+
+    let r = 0,
+      g = 0,
+      b = 0;
+
+    // HEX
+    if (color.startsWith('#')) {
+      let hex = color.replace('#', '');
+
+      if (hex.length === 3) {
+        hex = hex
+          .split('')
+          .map((c) => c + c)
+          .join('');
+      }
+
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+
+    // RGB / RGBA
+    else if (color.startsWith('rgb')) {
+      const values = color.match(/\d+/g);
+      if (values) {
+        r = +values[0];
+        g = +values[1];
+        b = +values[2];
+      }
+    }
+
+    // fallback for named color
+    else if (color.toLowerCase() === 'black') {
+      return true;
+    }
+
+    // 🔥 brightness calculation
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+    return brightness < 80; // 👈 threshold for “black category”
+  }
+
   // ================= HIT =================
   hit(x: number, y: number): Shape | null {
-    return [...this.shapes].reverse().find((s) => {
+    return (
+      [...this.shapes].reverse().find((s) => {
+        if (s.type === 'logger') {
+          const textWidth = this.ctx.measureText(s.text || '').width;
+          const padding = 6;
 
-      if (s.type === 'logger') {
-        const textWidth = this.ctx.measureText(s.text || '').width;
-        const padding = 6;
+          return (
+            x >= s.x - padding &&
+            x <= s.x + textWidth + padding &&
+            y >= s.y - 14 &&
+            y <= s.y + 6
+          );
+        }
 
-        return (
-          x >= s.x - padding &&
-          x <= s.x + textWidth + padding &&
-          y >= s.y - 14 &&
-          y <= s.y + 6
-        );
-      }
+        if (s.type === 'text') {
+          return x >= s.x && x <= s.x + 100 && y >= s.y - 20 && y <= s.y + 10;
+        }
 
-      if (s.type === 'text') {
-        return x >= s.x && x <= s.x + 100 &&
-               y >= s.y - 20 && y <= s.y + 10;
-      }
+        if (s.type === 'line' && s.points) {
+          const [p1, p2] = s.points;
 
-      if (s.type === 'line' && s.points) {
-        const [p1, p2] = s.points;
+          const dist =
+            Math.abs(
+              (p2.y - p1.y) * x - (p2.x - p1.x) * y + p2.x * p1.y - p2.y * p1.x,
+            ) / Math.hypot(p2.y - p1.y, p2.x - p1.x);
 
-        const dist =
-          Math.abs(
-            (p2.y - p1.y) * x -
-            (p2.x - p1.x) * y +
-            p2.x * p1.y -
-            p2.y * p1.x
-          ) / Math.hypot(p2.y - p1.y, p2.x - p1.x);
+          return dist < 4;
+        }
 
-        return dist < 4;
-      }
-
-      return false;
-    }) || null;
+        return false;
+      }) || null
+    );
   }
 
   // ================= ADD LOGGER =================
@@ -276,13 +319,24 @@ export class FigmaComponent implements AfterViewInit {
     const count = Number(prompt('Enter number of dataloggers'));
     if (!count) return;
 
-    let index = 1;
     const gap = 60;
 
-    for (let r = 0; r < Math.ceil(Math.sqrt(count)); r++) {
-      for (let c = 0; c < Math.ceil(Math.sqrt(count)); c++) {
+    // 🔥 get current max DL number
+    const max = this.shapes
+      .filter((s) => s.type === 'logger')
+      .map((s) => Number(s.text?.split('-')[1]))
+      .filter((n) => !isNaN(n));
 
-        if (index > count) break;
+    let index = max.length ? Math.max(...max) + 1 : 1;
+
+    const startIndex = index;
+
+    const cols = Math.ceil(Math.sqrt(count));
+    const rows = Math.ceil(count / cols);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (index >= startIndex + count) break;
 
         this.shapes.push({
           id: Date.now() + index,
@@ -306,7 +360,7 @@ export class FigmaComponent implements AfterViewInit {
     const { x, y } = this.pos(e);
     const s = this.hit(x, y);
 
-    if (s && (s.type === 'text')) {
+    if (s && s.type === 'text') {
       const t = prompt('Edit', s.text);
       if (t !== null) {
         s.text = t;
@@ -318,12 +372,13 @@ export class FigmaComponent implements AfterViewInit {
 
   // ================= UTILS =================
   selectFromLayer(s: Shape) {
+    console.log('selectFromLayer',s)
     this.selected = [s];
     this.draw();
   }
 
   deleteShape(s: Shape) {
-    this.shapes = this.shapes.filter(x => x.id !== s.id);
+    this.shapes = this.shapes.filter((x) => x.id !== s.id);
     this.saveState();
     this.draw();
   }

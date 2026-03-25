@@ -27,8 +27,8 @@
             <div *ngFor="let s of shapes; let i = index" [class.active]="selected.includes(s)"
                 (click)="selectFromLayer(s)">
 
-                <p style="color: black; width: 100%; margin: 0px; display: flex; align-items: center;">{{s.type}} -
-                    {{s.text}} - {{i}}</p>
+                <p style="color: black; width: 100%; margin: 0px; display: flex; align-items: center;">{{s.type}} - {{i}} -
+                    {{s.text}}</p>
                 <button style="width: 20px; margin: 0px;" (click)="deleteShape(s); $event.stopPropagation()">✕</button>
             </div>
         </div>
